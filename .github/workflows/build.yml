@@ -28,10 +28,25 @@ jobs:
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Install .NET Framework 4.0 reference assemblies
+        shell: pwsh
+        run: |
+          $packageUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.netframework.referenceassemblies.net40/1.0.3/microsoft.netframework.referenceassemblies.net40.1.0.3.nupkg"
+          $packageFile = Join-Path $env:RUNNER_TEMP "net40-reference-assemblies.nupkg"
+          $packageDir = Join-Path $env:RUNNER_TEMP "net40-reference-assemblies"
+          Invoke-WebRequest -Uri $packageUrl -OutFile $packageFile
+          Expand-Archive -Path $packageFile -DestinationPath $packageDir -Force
+          $frameworkRoot = Join-Path $packageDir "build\.NETFramework"
+          if (-not (Test-Path (Join-Path $frameworkRoot "v4.0\RedistList\FrameworkList.xml"))) {
+            Get-ChildItem -Path $packageDir -Recurse | Select-Object -First 30 -ExpandProperty FullName
+            throw "Could not locate .NET Framework 4.0 reference assemblies."
+          }
+          "NET40_REFERENCE_ROOT=$frameworkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build Release
         shell: pwsh
         run: |
-          msbuild .\SSELauncher.sln /m /verbosity:minimal /restore:false /p:Configuration=Release '/p:Platform=Any CPU'
+          msbuild .\SSELauncher.sln /m /verbosity:minimal /restore:false /p:Configuration=Release '/p:Platform=Any CPU' "/p:TargetFrameworkRootPath=$env:NET40_REFERENCE_ROOT\"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify executable
