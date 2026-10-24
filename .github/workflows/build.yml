@@ -1,0 +1,59 @@
+name: Build SmartSteamEmu Launcher
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.resx'
+      - '**.ico'
+      - 'app.config'
+      - '.github/workflows/build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build SSELauncher
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          msbuild .\SSELauncher.sln /m /verbosity:minimal /restore:false /p:Configuration=Release '/p:Platform=Any CPU'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = "SSELauncher\bin\Release\SSELauncher.exe"
+          if (-not (Test-Path $exe)) {
+            $exe = "bin\Release\SSELauncher.exe"
+          }
+          if (-not (Test-Path $exe)) {
+            Get-ChildItem -Path . -Filter SSELauncher.exe -Recurse | Select-Object -ExpandProperty FullName
+            throw "SSELauncher.exe was not found after the build."
+          }
+          Write-Host "Built: $((Resolve-Path $exe).Path)"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartSteamEmu-SSELauncher-windows
+          path: |
+            **/bin/Release/SSELauncher.exe
+            **/bin/Release/SSELauncher.pdb
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 14
