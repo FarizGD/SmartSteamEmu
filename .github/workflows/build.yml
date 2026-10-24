@@ -36,8 +36,10 @@ jobs:
           $packageDir = Join-Path $env:RUNNER_TEMP "net40-reference-assemblies"
           Invoke-WebRequest -Uri $packageUrl -OutFile $packageFile
           Expand-Archive -Path $packageFile -DestinationPath $packageDir -Force
-          $frameworkRoot = Join-Path $packageDir "build\.NETFramework"
-          if (-not (Test-Path (Join-Path $frameworkRoot "v4.0\RedistList\FrameworkList.xml"))) {
+          # TargetFrameworkRootPath must point to the directory containing .NETFramework.
+          $frameworkRoot = Join-Path $packageDir "build"
+          $referenceList = Join-Path $frameworkRoot ".NETFramework\v4.0\RedistList\FrameworkList.xml"
+          if (-not (Test-Path $referenceList)) {
             Get-ChildItem -Path $packageDir -Recurse | Select-Object -First 30 -ExpandProperty FullName
             throw "Could not locate .NET Framework 4.0 reference assemblies."
           }
